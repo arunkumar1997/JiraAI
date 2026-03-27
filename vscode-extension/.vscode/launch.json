@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "${defaultBuildTask}"
+    },
+    {
+      "name": "Debug MCP Server",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/dist/server.js",
+      "env": {
+        "JIRA_PAT": "your-pat-here",
+        "JIRA_BASE_URL": "http://localhost:8080",
+        "JIRA_PROJECT_KEY": "PROJ",
+        "JIRA_BOARD_ID": "1",
+        "LOG_LEVEL": "debug"
+      },
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "sourceMaps": true
+    }
+  ]
+}

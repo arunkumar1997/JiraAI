@@ -1,0 +1,169 @@
+{
+    "name": "jira-ai-mcp",
+    "displayName": "JIRA AI MCP Server",
+    "description": "AI-powered JIRA workflow automation — transforms meeting summaries into JIRA artifacts with human-in-the-loop approval. Exposes a full MCP server to GitHub Copilot.",
+    "version": "1.0.0",
+    "publisher": "jira-ai",
+    "icon": "images/icon.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/your-org/jiraAI"
+    },
+    "engines": {
+        "vscode": "^1.99.0"
+    },
+    "categories": [
+        "AI",
+        "Other"
+    ],
+    "keywords": [
+        "jira",
+        "mcp",
+        "ai",
+        "agile",
+        "copilot"
+    ],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "configuration": {
+            "title": "JIRA AI MCP",
+            "properties": {
+                "jiraAiMcp.baseUrl": {
+                    "type": "string",
+                    "default": "http://localhost:8080",
+                    "description": "JIRA base URL (e.g. https://mycompany.atlassian.net or http://localhost:8080 for local)"
+                },
+                "jiraAiMcp.pat": {
+                    "type": "string",
+                    "default": "",
+                    "markdownDescription": "JIRA Personal Access Token. **Tip:** Store this in a [secrets manager](https://code.visualstudio.com/docs/configure/settings-sync) rather than plain settings.",
+                    "secret": true
+                },
+                "jiraAiMcp.projectKey": {
+                    "type": "string",
+                    "default": "PROJ",
+                    "description": "Default JIRA project key (e.g. PROJ, MYAPP)"
+                },
+                "jiraAiMcp.boardId": {
+                    "type": "number",
+                    "default": 1,
+                    "description": "Default JIRA Scrum board ID (used for sprint operations)"
+                },
+                "jiraAiMcp.storyPointsField": {
+                    "type": "string",
+                    "default": "customfield_10016",
+                    "description": "JIRA custom field ID for story points"
+                },
+                "jiraAiMcp.epicLinkField": {
+                    "type": "string",
+                    "default": "customfield_10014",
+                    "description": "JIRA custom field ID for Epic link"
+                },
+                "jiraAiMcp.epicNameField": {
+                    "type": "string",
+                    "default": "customfield_10011",
+                    "description": "JIRA custom field ID for Epic name"
+                },
+                "jiraAiMcp.sprintField": {
+                    "type": "string",
+                    "default": "customfield_10020",
+                    "description": "JIRA custom field ID for Sprint"
+                },
+                "jiraAiMcp.acceptanceCriteriaField": {
+                    "type": "string",
+                    "default": "customfield_10006",
+                    "description": "JIRA custom field ID for Acceptance Criteria"
+                },
+                "jiraAiMcp.logLevel": {
+                    "type": "string",
+                    "enum": [
+                        "error",
+                        "warn",
+                        "info",
+                        "debug"
+                    ],
+                    "default": "info",
+                    "description": "Log level for the MCP server"
+                },
+                "jiraAiMcp.whisperPython": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to python executable with faster-whisper installed (leave blank to use system python3)"
+                },
+                "jiraAiMcp.artifactGuidelines": {
+                    "type": "string",
+                    "default": "Use BDD-style acceptance criteria (Given/When/Then). Every Story must link to an Epic. Bugs must include steps to reproduce. Story points: 1=trivial, 2=small, 3=medium, 5=large, 8=very large, 13=needs splitting.",
+                    "description": "Additional guidelines injected into the create_jira_draft system prompt (e.g. 'Always use BDD-style acceptance criteria. Every Story must have at least 5 ACs.')"
+                }
+            }
+        },
+        "mcpServerDefinitions": {
+            "jira-ai": {
+                "label": "JIRA AI",
+                "command": "node",
+                "args": [
+                    "${extensionPath}/dist/server.js"
+                ],
+                "env": {
+                    "JIRA_BASE_URL": "${config:jiraAiMcp.baseUrl}",
+                    "JIRA_PAT": "${config:jiraAiMcp.pat}",
+                    "JIRA_PROJECT_KEY": "${config:jiraAiMcp.projectKey}",
+                    "JIRA_BOARD_ID": "${config:jiraAiMcp.boardId}",
+                    "JIRA_FIELD_STORY_POINTS": "${config:jiraAiMcp.storyPointsField}",
+                    "JIRA_FIELD_EPIC_LINK": "${config:jiraAiMcp.epicLinkField}",
+                    "JIRA_FIELD_EPIC_NAME": "${config:jiraAiMcp.epicNameField}",
+                    "JIRA_FIELD_SPRINT": "${config:jiraAiMcp.sprintField}",
+                    "JIRA_FIELD_ACCEPTANCE_CRITERIA": "${config:jiraAiMcp.acceptanceCriteriaField}",
+                    "LOG_LEVEL": "${config:jiraAiMcp.logLevel}",
+                    "WHISPER_PYTHON": "${config:jiraAiMcp.whisperPython}",
+                    "JIRA_ARTIFACT_GUIDELINES": "${config:jiraAiMcp.artifactGuidelines}"
+                }
+            }
+        },
+        "commands": [
+            {
+                "command": "jiraAiMcp.openSettings",
+                "title": "JIRA AI MCP: Open Settings",
+                "category": "JIRA AI"
+            },
+            {
+                "command": "jiraAiMcp.checkConnection",
+                "title": "JIRA AI MCP: Check Connection",
+                "category": "JIRA AI"
+            },
+            {
+                "command": "jiraAiMcp.reviewDraft",
+                "title": "JIRA AI MCP: Review Draft",
+                "category": "JIRA AI"
+            }
+        ]
+    },
+    "scripts": {
+        "compile": "npm run compile:extension && npm run compile:server",
+        "compile:extension": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+        "compile:server": "esbuild src/server.ts --bundle --outfile=dist/server.js --format=cjs --platform=node --sourcemap",
+        "watch": "concurrently \"npm run compile:extension -- --watch\" \"npm run compile:server -- --watch\"",
+        "watch:extension": "npm run compile:extension -- --watch",
+        "watch:server": "npm run compile:server -- --watch",
+        "typecheck": "tsc --noEmit",
+        "package": "npm run compile && vsce package --no-dependencies",
+        "vscode:prepublish": "npm run compile"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "latest",
+        "axios": "latest",
+        "uuid": "latest"
+    },
+    "devDependencies": {
+        "@types/node": "latest",
+        "@types/uuid": "latest",
+        "@types/vscode": "^1.99.0",
+        "typescript": "latest",
+        "esbuild": "latest",
+        "concurrently": "latest",
+        "@vscode/vsce": "latest"
+    }
+}

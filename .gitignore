@@ -1,0 +1,37 @@
+# ─── Dependencies ─────────────────────────────────────────────────────────────
+node_modules/
+
+# ─── Build output ─────────────────────────────────────────────────────────────
+dist/
+
+# ─── Environment / Secrets — NEVER commit these ───────────────────────────────
+.env
+.env.local
+.env.*.local
+docker/.env
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ─── Draft storage (runtime state) ───────────────────────────────────────────
+.drafts.json
+
+# ─── Docker runtime data — never commit volumes ───────────────────────────────
+docker/jira-home/
+docker/postgres-data/
+docker/nginx/ssl/
+
+# ─── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── IDEs ─────────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.vscode/mcp.json
+.idea/
+*.swp
+
+# ─── Test coverage ────────────────────────────────────────────────────────────
+coverage/
+data/*.db
