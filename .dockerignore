@@ -1,0 +1,12 @@
+node_modules
+coverage
+.vscode
+.vscode-server
+.git
+.gitignore
+logs
+data
+.env*
+vscode-extension
+README.md
+docs
