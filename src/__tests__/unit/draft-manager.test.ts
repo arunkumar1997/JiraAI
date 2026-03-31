@@ -145,6 +145,15 @@ describe("DraftManager — approve", () => {
     mgr.markCommitted(id, [{ ref: "EPIC-01", key: "TEST-1" }]);
     expect(() => mgr.approve(id, "all")).toThrow(/Cannot approve/);
   });
+
+  it("re-approving an already approved draft is a no-op", () => {
+    const mgr = freshManager();
+    const { id } = mgr.create("TEST", "ctx", [makeArtifact()]);
+    mgr.approve(id, "all");
+
+    expect(() => mgr.approve(id, "all")).not.toThrow();
+    expect(mgr.get(id)?.status).toBe("approved");
+  });
 });
 
 describe("DraftManager — reject", () => {

@@ -105,6 +105,25 @@ class DraftManager {
 
   approve(id: string, refs: string[] | "all"): Draft {
     const draft = this.getOrThrow(id);
+    // Idempotent behavior: repeated approval requests should be safe no-ops.
+    if (draft.status === "approved") {
+      return draft;
+    }
+
+    // Allow promoting a partially approved draft to fully approved.
+    if (draft.status === "partial" && refs === "all") {
+      const now = new Date().toISOString();
+      draft.status = "approved";
+      draft.updatedAt = now;
+      draft.actionLog.push({ timestamp: now, action: "approved_all" });
+      this.persist();
+      return draft;
+    }
+
+    if (draft.status === "partial") {
+      return draft;
+    }
+
     this.assertStatus(draft, ["pending_review", "rejected"], "approve");
     const now = new Date().toISOString();
 

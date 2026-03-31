@@ -102,4 +102,5 @@ volumes:
 # ─── Network ─────────────────────────────────────────────────────────────────
 networks:
   jira-net:
+    name: jira-net
     driver: bridge

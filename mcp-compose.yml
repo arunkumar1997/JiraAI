@@ -1,0 +1,33 @@
+# Dedicated compose stack for the JIRA AI MCP server only.
+# Usage:
+#   docker build -t jira-ai-mcp:local .
+#   docker compose -f mcp-compose.yml run -i --rm jira-ai-mcp
+
+services:
+  jira-ai-mcp:
+    image: jira-ai-mcp:local
+    container_name: jira-ai-mcp
+    stdin_open: true
+    tty: false
+    working_dir: /app
+    environment:
+      JIRA_BASE_URL: ${JIRA_BASE_URL:-http://jira-nginx}
+      JIRA_PAT: ${JIRA_PAT:-}
+      JIRA_PROJECT_KEY: ${JIRA_PROJECT_KEY:-PROJ}
+      JIRA_BOARD_ID: ${JIRA_BOARD_ID:-1}
+      JIRA_FIELD_STORY_POINTS: ${JIRA_FIELD_STORY_POINTS:-customfield_10016}
+      JIRA_FIELD_EPIC_LINK: ${JIRA_FIELD_EPIC_LINK:-customfield_10014}
+      JIRA_FIELD_EPIC_NAME: ${JIRA_FIELD_EPIC_NAME:-customfield_10104}
+      JIRA_FIELD_SPRINT: ${JIRA_FIELD_SPRINT:-customfield_10020}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    networks:
+      - jira-net
+
+
+networks:
+  jira-net:
+    external: true
+    name: docker_jira-net

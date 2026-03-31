@@ -46,6 +46,20 @@ npm run build
 npm start
 ```
 
+### 3a. Build Docker image for VS Code MCP
+
+If you run the MCP server from `.vscode/mcp.json` with Docker, build the local image once:
+
+```bash
+docker build -t jira-ai-mcp:local .
+```
+
+If you want to run the MCP server via Docker Compose directly:
+
+```bash
+docker compose -f mcp-compose.yml run -i --rm jira-ai-mcp
+```
+
 ### 4. Connect to Claude Desktop
 
 Add to `~/.config/claude/claude_desktop_config.json`:
@@ -148,6 +162,7 @@ jiraAI/
 │   ├── .env.example          # Docker env vars template
 │   ├── nginx/nginx.conf      # Reverse proxy config
 │   └── init-db.sql           # PostgreSQL initialization
+├── mcp-compose.yml           # Dedicated MCP server compose stack
 ├── docs/                     # Architecture, setup, and API docs
 │   ├── architecture/
 │   ├── setup/
