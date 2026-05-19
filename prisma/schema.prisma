@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Draft {
+  id             String           @id
+  projectKey     String
+  meetingContext String
+  status         String           @default("pending_review")
+  feedback       String?
+  committedKeys  String?
+  createdAt      DateTime
+  updatedAt      DateTime
+  artifacts      DraftArtifact[]
+  actionLogs     DraftActionLog[]
+  issues         Issue[]
+
+  @@index([projectKey])
+  @@index([status])
+  @@map("drafts")
+}
+
+model DraftArtifact {
+  id                 String  @id
+  draftId            String
+  ref                String
+  type               String
+  summary            String
+  description        String
+  priority           String? @default("Medium")
+  storyPoints        Int?    @default(3)
+  acceptanceCriteria String?
+  testingScenarios   String?
+  edgeCases          String?
+  possibleBugs       String?
+  labels             String?
+  components         String?
+  epicRef            String?
+  parentRef          String?
+  epicLinkKey        String?
+  parentKey          String?
+  assigneeId         String?
+  sprintId           Int?
+  flaggedForReview   Boolean @default(false)
+  notes              String?
+  committedKey       String?
+  draft              Draft   @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId])
+  @@map("draft_artifacts")
+}
+
+model DraftActionLog {
+  id        String   @id
+  draftId   String
+  timestamp DateTime
+  action    String
+  note      String?
+  items     String?
+  draft     Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId])
+  @@map("draft_action_logs")
+}
+
+model Issue {
+  id          String   @id
+  key         String   @unique
+  projectKey  String
+  issueType   String
+  summary     String
+  description String?
+  priority    String?
+  status      String   @default("Open")
+  assignee    String?
+  createdAt   DateTime
+  updatedAt   DateTime
+  draftId     String?
+  draft       Draft?   @relation(fields: [draftId], references: [id])
+
+  @@index([projectKey])
+  @@index([status])
+  @@map("issues")
+}
+
+/// Document chunks for RAG ingestion
+model DocChunk {
+  id         Int           @id @default(autoincrement())
+  sourceFile String        @map("source_file")
+  chunkIndex Int           @map("chunk_index")
+  content    String
+  ingestedAt DateTime      @map("ingested_at")
+  embedding  DocEmbedding?
+
+  @@unique([sourceFile, chunkIndex])
+  @@index([sourceFile])
+  @@map("doc_chunks")
+}
+
+/// Stores pgvector embeddings — all writes/reads use $executeRaw / $queryRaw
+model DocEmbedding {
+  chunkId   Int                      @id @map("chunk_id")
+  embedding Unsupported("vector(768)")
+  chunk     DocChunk                 @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  @@map("doc_embeddings")
+}

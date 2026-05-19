@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
-import { Config } from "../config.js";
 import { logger } from "../utils/logger.js";
-import { database } from "../utils/database.js";
+import { prisma } from "../utils/database.js";
 import type { Draft, DraftArtifact, DraftStatus } from "../jira/types.js";
 
 // ─── Draft State Machine ──────────────────────────────────────────────────────
@@ -17,72 +16,71 @@ import type { Draft, DraftArtifact, DraftStatus } from "../jira/types.js";
 
 class DraftManager {
   constructor() {
-    logger.info("Draft manager initialized with SQLite storage");
+    logger.info("Draft manager initialized with PostgreSQL (Prisma) storage");
   }
 
-  // ─── Persistence (SQLite) ─────────────────────────────────────────────────────────────
+  // ─── Persistence (Prisma / PostgreSQL) ───────────────────────────────────────
 
-  private loadDraftFromDb(id: string): Draft | undefined {
+  private async loadDraftFromDb(id: string): Promise<Draft | undefined> {
     try {
-      const stmt = database.prepare("SELECT * FROM drafts WHERE id = ?");
-      const draftRow = stmt.get(id) as any;
-      if (!draftRow) return undefined;
+      const row = await prisma.draft.findUnique({
+        where: { id },
+        include: {
+          artifacts: true,
+          actionLogs: { orderBy: { timestamp: "asc" } },
+        },
+      });
+      if (!row) return undefined;
 
-      // Load artifacts
-      const artifactsStmt = database.prepare(
-        "SELECT * FROM draft_artifacts WHERE draftId = ?",
-      );
-      const artifactRows = artifactsStmt.all(id) as any[];
-      const artifacts = artifactRows.map((row: any) => ({
-        ref: row.ref,
-        type: row.type,
-        summary: row.summary,
-        description: row.description,
-        priority: row.priority,
-        storyPoints: row.storyPoints,
-        acceptanceCriteria: row.acceptanceCriteria
-          ? JSON.parse(row.acceptanceCriteria)
+      const artifacts: DraftArtifact[] = row.artifacts.map((a) => ({
+        ref: a.ref,
+        type: a.type as DraftArtifact["type"],
+        summary: a.summary,
+        description: a.description,
+        priority: (a.priority ?? "Medium") as DraftArtifact["priority"],
+        storyPoints: (a.storyPoints ?? 3) as DraftArtifact["storyPoints"],
+        acceptanceCriteria: a.acceptanceCriteria
+          ? (JSON.parse(a.acceptanceCriteria) as string[])
           : [],
-        testingScenarios: row.testingScenarios
-          ? JSON.parse(row.testingScenarios)
+        testingScenarios: a.testingScenarios
+          ? (JSON.parse(a.testingScenarios) as string[])
           : [],
-        edgeCases: row.edgeCases ? JSON.parse(row.edgeCases) : [],
-        possibleBugs: row.possibleBugs ? JSON.parse(row.possibleBugs) : [],
-        labels: row.labels ? JSON.parse(row.labels) : [],
-        components: row.components ? JSON.parse(row.components) : [],
-        epicRef: row.epicRef,
-        parentRef: row.parentRef,
-        epicLinkKey: row.epicLinkKey,
-        parentKey: row.parentKey,
-        assigneeId: row.assigneeId,
-        sprintId: row.sprintId,
-        flaggedForReview: row.flaggedForReview === 1,
-        notes: row.notes,
-        committedKey: row.committedKey,
+        edgeCases: a.edgeCases ? (JSON.parse(a.edgeCases) as string[]) : [],
+        possibleBugs: a.possibleBugs
+          ? (JSON.parse(a.possibleBugs) as string[])
+          : [],
+        labels: a.labels ? (JSON.parse(a.labels) as string[]) : [],
+        components: a.components
+          ? (JSON.parse(a.components) as string[])
+          : [],
+        epicRef: a.epicRef ?? undefined,
+        parentRef: a.parentRef ?? undefined,
+        epicLinkKey: a.epicLinkKey ?? undefined,
+        parentKey: a.parentKey ?? undefined,
+        assigneeId: a.assigneeId ?? undefined,
+        sprintId: a.sprintId ?? undefined,
+        flaggedForReview: a.flaggedForReview,
+        notes: a.notes ?? undefined,
+        committedKey: a.committedKey ?? undefined,
       }));
 
-      // Load action logs
-      const logsStmt = database.prepare(
-        "SELECT * FROM draft_action_logs WHERE draftId = ? ORDER BY timestamp",
-      );
-      const logRows = logsStmt.all(id) as any[];
-      const actionLog = logRows.map((row: any) => ({
-        timestamp: row.timestamp,
-        action: row.action,
-        note: row.note,
-        items: row.items ? JSON.parse(row.items) : undefined,
+      const actionLog = row.actionLogs.map((l) => ({
+        timestamp: l.timestamp.toISOString(),
+        action: l.action,
+        note: l.note ?? undefined,
+        items: l.items ? (JSON.parse(l.items) as string[]) : undefined,
       }));
 
       return {
-        id: draftRow.id,
-        createdAt: draftRow.createdAt,
-        updatedAt: draftRow.updatedAt,
-        projectKey: draftRow.projectKey,
-        meetingContext: draftRow.meetingContext,
-        status: draftRow.status as DraftStatus,
+        id: row.id,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+        projectKey: row.projectKey,
+        meetingContext: row.meetingContext,
+        status: row.status as DraftStatus,
         artifacts,
         actionLog,
-        feedback: draftRow.feedback,
+        feedback: row.feedback ?? undefined,
       };
     } catch (err) {
       logger.error("Failed to load draft from DB", { err });
@@ -90,98 +88,77 @@ class DraftManager {
     }
   }
 
-  private persistDraft(draft: Draft): void {
+  private async persistDraft(draft: Draft): Promise<void> {
     try {
-      database.transaction(() => {
-        // Insert/update draft
-        const updateStmt = database.prepare(
-          `INSERT INTO drafts (id, projectKey, meetingContext, status, feedback, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-           status = excluded.status,
-           feedback = excluded.feedback,
-           updatedAt = excluded.updatedAt`,
-        );
-        updateStmt.run(
-          draft.id,
-          draft.projectKey,
-          draft.meetingContext,
-          draft.status,
-          draft.feedback || null,
-          draft.createdAt,
-          draft.updatedAt,
-        );
+      await prisma.$transaction(async (tx) => {
+        await tx.draft.upsert({
+          where: { id: draft.id },
+          create: {
+            id: draft.id,
+            projectKey: draft.projectKey,
+            meetingContext: draft.meetingContext,
+            status: draft.status,
+            feedback: draft.feedback ?? null,
+            createdAt: new Date(draft.createdAt),
+            updatedAt: new Date(draft.updatedAt),
+          },
+          update: {
+            status: draft.status,
+            feedback: draft.feedback ?? null,
+            updatedAt: new Date(draft.updatedAt),
+          },
+        });
 
-        // Delete old artifacts
-        const deleteArtsStmt = database.prepare(
-          "DELETE FROM draft_artifacts WHERE draftId = ?",
-        );
-        deleteArtsStmt.run(draft.id);
-
-        // Insert new artifacts
-        const artStmt = database.prepare(
-          `INSERT INTO draft_artifacts
-           (id, draftId, ref, type, summary, description, priority, storyPoints,
-            acceptanceCriteria, testingScenarios, edgeCases, possibleBugs, labels,
-            components, epicRef, parentRef, epicLinkKey, parentKey, assigneeId,
-            sprintId, flaggedForReview, notes, committedKey)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        );
-
-        for (const art of draft.artifacts) {
-          artStmt.run(
-            randomUUID(),
-            draft.id,
-            art.ref,
-            art.type,
-            art.summary,
-            art.description,
-            art.priority,
-            art.storyPoints,
-            art.acceptanceCriteria?.length
+        await tx.draftArtifact.deleteMany({ where: { draftId: draft.id } });
+        await tx.draftArtifact.createMany({
+          data: draft.artifacts.map((art) => ({
+            id: randomUUID(),
+            draftId: draft.id,
+            ref: art.ref,
+            type: art.type,
+            summary: art.summary,
+            description: art.description,
+            priority: art.priority ?? "Medium",
+            storyPoints: art.storyPoints ?? 3,
+            acceptanceCriteria: art.acceptanceCriteria?.length
               ? JSON.stringify(art.acceptanceCriteria)
               : null,
-            art.testingScenarios?.length
+            testingScenarios: art.testingScenarios?.length
               ? JSON.stringify(art.testingScenarios)
               : null,
-            art.edgeCases?.length ? JSON.stringify(art.edgeCases) : null,
-            art.possibleBugs?.length ? JSON.stringify(art.possibleBugs) : null,
-            art.labels?.length ? JSON.stringify(art.labels) : null,
-            art.components?.length ? JSON.stringify(art.components) : null,
-            art.epicRef || null,
-            art.parentRef || null,
-            art.epicLinkKey || null,
-            art.parentKey || null,
-            art.assigneeId || null,
-            art.sprintId || null,
-            art.flaggedForReview ? 1 : 0,
-            art.notes || null,
-            art.committedKey || null,
-          );
-        }
+            edgeCases: art.edgeCases?.length
+              ? JSON.stringify(art.edgeCases)
+              : null,
+            possibleBugs: art.possibleBugs?.length
+              ? JSON.stringify(art.possibleBugs)
+              : null,
+            labels: art.labels?.length ? JSON.stringify(art.labels) : null,
+            components: art.components?.length
+              ? JSON.stringify(art.components)
+              : null,
+            epicRef: art.epicRef ?? null,
+            parentRef: art.parentRef ?? null,
+            epicLinkKey: art.epicLinkKey ?? null,
+            parentKey: art.parentKey ?? null,
+            assigneeId: art.assigneeId ?? null,
+            sprintId: art.sprintId ?? null,
+            flaggedForReview: art.flaggedForReview ?? false,
+            notes: art.notes ?? null,
+            committedKey: art.committedKey ?? null,
+          })),
+        });
 
-        // Delete old logs
-        const deleteLogsStmt = database.prepare(
-          "DELETE FROM draft_action_logs WHERE draftId = ?",
-        );
-        deleteLogsStmt.run(draft.id);
-
-        // Insert new logs
-        const logStmt = database.prepare(
-          `INSERT INTO draft_action_logs (id, draftId, timestamp, action, note, items)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        );
-
-        for (const log of draft.actionLog) {
-          logStmt.run(
-            randomUUID(),
-            draft.id,
-            log.timestamp,
-            log.action,
-            log.note || null,
-            log.items ? JSON.stringify(log.items) : null,
-          );
-        }
+        await tx.draftActionLog.deleteMany({ where: { draftId: draft.id } });
+        await tx.draftActionLog.createMany({
+          data: draft.actionLog.map((log) => ({
+            id: randomUUID(),
+            draftId: draft.id,
+            timestamp: new Date(log.timestamp),
+            action: log.action,
+            note: log.note ?? null,
+            items: log.items ? JSON.stringify(log.items) : null,
+          })),
+        });
       });
     } catch (err) {
       logger.warn("Draft manager: could not persist draft", { err });
@@ -190,11 +167,11 @@ class DraftManager {
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
-  create(
+  async create(
     projectKey: string,
     meetingContext: string,
     artifacts: DraftArtifact[],
-  ): Draft {
+  ): Promise<Draft> {
     const id = randomUUID();
     const now = new Date().toISOString();
     const draft: Draft = {
@@ -213,24 +190,25 @@ class DraftManager {
         },
       ],
     };
-    this.persistDraft(draft);
+    await this.persistDraft(draft);
     logger.info("Draft created", { draftId: id, artifacts: artifacts.length });
     return draft;
   }
 
-  get(id: string): Draft | undefined {
+  async get(id: string): Promise<Draft | undefined> {
     return this.loadDraftFromDb(id);
   }
 
-  list(): Draft[] {
+  async list(): Promise<Draft[]> {
     try {
-      const stmt = database.prepare(
-        "SELECT id FROM drafts ORDER BY createdAt DESC",
+      const rows = await prisma.draft.findMany({
+        select: { id: true },
+        orderBy: { createdAt: "desc" },
+      });
+      const drafts = await Promise.all(
+        rows.map((r) => this.loadDraftFromDb(r.id)),
       );
-      const rows = stmt.all() as any[];
-      return rows
-        .map((row: any) => this.loadDraftFromDb(row.id))
-        .filter((d): d is Draft => d !== undefined);
+      return drafts.filter((d): d is Draft => d !== undefined);
     } catch (err) {
       logger.error("Failed to list drafts", { err });
       return [];
@@ -239,20 +217,18 @@ class DraftManager {
 
   // ─── State Transitions ───────────────────────────────────────────────────────
 
-  approve(id: string, refs: string[] | "all"): Draft {
-    const draft = this.getOrThrow(id);
-    // Idempotent behavior: repeated approval requests should be safe no-ops.
+  async approve(id: string, refs: string[] | "all"): Promise<Draft> {
+    const draft = await this.getOrThrow(id);
     if (draft.status === "approved") {
       return draft;
     }
 
-    // Allow promoting a partially approved draft to fully approved.
     if (draft.status === "partial" && refs === "all") {
       const now = new Date().toISOString();
       draft.status = "approved";
       draft.updatedAt = now;
       draft.actionLog.push({ timestamp: now, action: "approved_all" });
-      this.persistDraft(draft);
+      await this.persistDraft(draft);
       return draft;
     }
 
@@ -275,28 +251,24 @@ class DraftManager {
       });
     }
     draft.updatedAt = now;
-    this.persistDraft(draft);
+    await this.persistDraft(draft);
     return draft;
   }
 
-  reject(id: string, feedback: string): Draft {
-    const draft = this.getOrThrow(id);
+  async reject(id: string, feedback: string): Promise<Draft> {
+    const draft = await this.getOrThrow(id);
     this.assertStatus(draft, ["pending_review"], "reject");
     const now = new Date().toISOString();
     draft.status = "rejected";
     draft.feedback = feedback;
     draft.updatedAt = now;
-    draft.actionLog.push({
-      timestamp: now,
-      action: "rejected",
-      note: feedback,
-    });
-    this.persistDraft(draft);
+    draft.actionLog.push({ timestamp: now, action: "rejected", note: feedback });
+    await this.persistDraft(draft);
     return draft;
   }
 
-  revise(id: string, artifacts: DraftArtifact[]): Draft {
-    const draft = this.getOrThrow(id);
+  async revise(id: string, artifacts: DraftArtifact[]): Promise<Draft> {
+    const draft = await this.getOrThrow(id);
     this.assertStatus(draft, ["rejected", "pending_review"], "revise");
     const now = new Date().toISOString();
     draft.artifacts = artifacts;
@@ -308,15 +280,15 @@ class DraftManager {
       action: "revised",
       note: `Artifacts updated after feedback (${artifacts.length} items)`,
     });
-    this.persistDraft(draft);
+    await this.persistDraft(draft);
     return draft;
   }
 
-  markCommitted(
+  async markCommitted(
     id: string,
     committed: Array<{ ref: string; key: string }>,
-  ): Draft {
-    const draft = this.getOrThrow(id);
+  ): Promise<Draft> {
+    const draft = await this.getOrThrow(id);
     const now = new Date().toISOString();
     for (const { ref, key } of committed) {
       const artifact = draft.artifacts.find((a) => a.ref === ref);
@@ -329,14 +301,13 @@ class DraftManager {
       action: "committed",
       items: committed.map(({ ref, key }) => `${ref} → ${key}`),
     });
-    this.persistDraft(draft);
+    await this.persistDraft(draft);
     return draft;
   }
 
-  delete(id: string): void {
+  async delete(id: string): Promise<void> {
     try {
-      const stmt = database.prepare("DELETE FROM drafts WHERE id = ?");
-      stmt.run(id);
+      await prisma.draft.delete({ where: { id } });
     } catch (err) {
       logger.error("Failed to delete draft", { err });
     }
@@ -348,7 +319,6 @@ class DraftManager {
     const shortId = draft.id.slice(0, 8);
     const out: string[] = [];
 
-    // ── Header ──────────────────────────────────────────────────────────────
     out.push(`## JIRA Draft Review — \`${shortId}…\``);
     out.push("");
     out.push(`| | |`);
@@ -368,15 +338,7 @@ class DraftManager {
     out.push("### Select the issues to create in JIRA:");
     out.push("");
 
-    // ── Group by type ───────────────────────────────────────────────────────
-    const ORDER: Array<string> = [
-      "Epic",
-      "Story",
-      "Task",
-      "Bug",
-      "Spike",
-      "Sub-task",
-    ];
+    const ORDER = ["Epic", "Story", "Task", "Bug", "Spike", "Sub-task"];
     const ICONS: Record<string, string> = {
       Epic: "🟣",
       Story: "🔵",
@@ -440,7 +402,6 @@ class DraftManager {
       out.push("");
     }
 
-    // ── Footer ──────────────────────────────────────────────────────────────
     out.push("---");
     out.push("");
     out.push(
@@ -465,8 +426,8 @@ class DraftManager {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  private getOrThrow(id: string): Draft {
-    const draft = this.loadDraftFromDb(id);
+  private async getOrThrow(id: string): Promise<Draft> {
+    const draft = await this.loadDraftFromDb(id);
     if (!draft) throw new Error(`Draft not found: ${id}`);
     return draft;
   }

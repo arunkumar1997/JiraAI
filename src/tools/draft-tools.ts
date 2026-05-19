@@ -252,7 +252,11 @@ export async function handleDraftTool(
       const projectKey = (args.project_key as string) || Config.jira.projectKey;
       const meetingContext = args.meeting_context as string;
       const artifacts = args.artifacts as DraftArtifact[];
-      const draft = draftManager.create(projectKey, meetingContext, artifacts);
+      const draft = await draftManager.create(
+        projectKey,
+        meetingContext,
+        artifacts,
+      );
       const review = draftManager.formatReviewSummary(draft);
       return (
         review +
@@ -263,13 +267,13 @@ export async function handleDraftTool(
     }
 
     case "get_jira_draft": {
-      const draft = draftManager.get(args.draft_id as string);
+      const draft = await draftManager.get(args.draft_id as string);
       if (!draft) return `❌ Draft not found: ${args.draft_id as string}`;
       return draftManager.formatReviewSummary(draft);
     }
 
     case "list_jira_drafts": {
-      const drafts = draftManager.list();
+      const drafts = await draftManager.list();
       if (!drafts.length) return "No drafts found.";
       return drafts
         .map((d) => {
@@ -284,7 +288,7 @@ export async function handleDraftTool(
 
     case "approve_jira_draft": {
       const refs = args.approve as string[] | "all";
-      const draft = draftManager.approve(args.draft_id as string, refs);
+      const draft = await draftManager.approve(args.draft_id as string, refs);
       const count =
         refs === "all" ? draft.artifacts.length : (refs as string[]).length;
       return (
@@ -294,7 +298,7 @@ export async function handleDraftTool(
     }
 
     case "reject_jira_draft": {
-      const draft = draftManager.reject(
+      const draft = await draftManager.reject(
         args.draft_id as string,
         args.feedback as string,
       );
@@ -306,7 +310,7 @@ export async function handleDraftTool(
     }
 
     case "revise_jira_draft": {
-      const draft = draftManager.revise(
+      const draft = await draftManager.revise(
         args.draft_id as string,
         args.artifacts as DraftArtifact[],
       );
@@ -341,7 +345,7 @@ async function commitDraft(
   refs: string[] | "all",
   dryRun: boolean,
 ): Promise<string> {
-  const draft = draftManager.get(draftId);
+  const draft = await draftManager.get(draftId);
   if (!draft) return `❌ Draft not found: ${draftId}`;
 
   if (!["approved", "partial"].includes(draft.status)) {
@@ -454,7 +458,7 @@ async function commitDraft(
   }
 
   if (committed.length) {
-    draftManager.markCommitted(draftId, committed);
+    await draftManager.markCommitted(draftId, committed);
   }
 
   results.push("");

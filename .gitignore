@@ -6,7 +6,7 @@ dist/
 
 # ─── Environment / Secrets — NEVER commit these ───────────────────────────────
 .env
-.env.local
+.env
 .env.*.local
 docker/.env
 

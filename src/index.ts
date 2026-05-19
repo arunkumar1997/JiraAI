@@ -39,6 +39,7 @@ import {
   transcriptionToolDefinitions,
   handleTranscriptionTool,
 } from "./tools/transcription-tools.js";
+import { docsToolDefinitions, handleDocsTool } from "./tools/docs-tools.js";
 
 // ─── Server Instructions ──────────────────────────────────────────────────────
 // Embedded in the MCP initialize response — every AI client will receive these.
@@ -98,6 +99,7 @@ const ALL_TOOLS: Tool[] = [
   ...commentToolDefinitions, // Issue comments
   ...workflowToolDefinitions, // Status transitions
   ...transcriptionToolDefinitions, // Local meeting transcription (on-device, no data leaves machine)
+  ...docsToolDefinitions, // Semantic search over ingested project documents
 ];
 
 type Handler = (name: string, args: Record<string, unknown>) => Promise<string>;
@@ -142,6 +144,9 @@ const ROUTER: Record<string, Handler> = {
   transcribe_meeting: handleTranscriptionTool,
   start_transcription: handleTranscriptionTool, // long recordings — returns immediately
   get_transcription_result: handleTranscriptionTool, // poll for background job result
+
+  // Project docs — semantic search over ingested documents
+  search_project_docs: handleDocsTool,
 };
 
 // ─── Server Bootstrap ─────────────────────────────────────────────────────────

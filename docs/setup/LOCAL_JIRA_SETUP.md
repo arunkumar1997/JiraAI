@@ -178,8 +178,8 @@ customfield_10020 | Sprint
 
 ```bash
 cd /home/arun/jiraAI
-cp .env.example .env.local
-nano .env.local
+cp .env.example .env
+nano .env
 ```
 
 Fill in:
@@ -275,7 +275,7 @@ curl http://localhost:8080/status
 ### Port 8080 already in use
 
 - Change port: `- "9090:8080"` in docker-compose.yml
-- Update `JIRA_BASE_URL=http://localhost:9090` in `.env.local`
+- Update `JIRA_BASE_URL=http://localhost:9090` in `.env`
 
 ### MCP server can't reach JIRA
 

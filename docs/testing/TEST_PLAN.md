@@ -197,10 +197,10 @@ describe("jira_delete_issue", () => {
 - Call `commit_jira_draft` without calling `approve_jira_draft` first
 - Expected: `Cannot commit — draft status is "pending_review"`
 
-### SEC-04: .env.local not committed
+### SEC-04: .env not committed
 
-- `git status` — `.env.local` should appear in `.gitignore` exclusions
-- `git log --all --full-history -- .env.local` returns empty
+- `git status` — `.env` should appear in `.gitignore` exclusions
+- `git log --all --full-history -- .env` returns empty
 
 ### SEC-05: JQL injection (input validation)
 

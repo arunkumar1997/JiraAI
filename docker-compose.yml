@@ -1,0 +1,109 @@
+# ─── JIRA AI — Docker Compose ───────────────────────────────────────────────
+# Services: PostgreSQL (pgvector), Ollama, jira-ai-mcp
+# Connects to an external Jira instance via JIRA_BASE_URL + JIRA_PAT.
+#
+# Usage:
+#   cp .env.example .env
+#   Edit .env (set POSTGRES_PASSWORD, JIRA_PAT, JIRA_BASE_URL)
+#   docker compose up -d
+#
+# First-time model pull:
+#   docker exec -it ollama ollama pull nomic-embed-text
+#
+# Ingest docs:
+#   docker compose run --rm jira-ai-mcp npm run ingest-docs
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ─── PostgreSQL 16 + pgvector ────────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: jira-postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jiraai}
+      POSTGRES_USER: ${POSTGRES_USER:-jiraai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    networks:
+      - jira-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-jiraai} -d ${POSTGRES_DB:-jiraai}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ─── Ollama (local embedding model) ──────────────────────────────────────────
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - jira-net
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ─── JIRA AI MCP Server ───────────────────────────────────────────────────────
+  jira-ai-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jira-ai-mcp:local
+    container_name: jira-ai-mcp
+    stdin_open: true
+    tty: false
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-jiraai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-jiraai}"
+      JIRA_BASE_URL: ${JIRA_BASE_URL:?JIRA_BASE_URL is required (e.g. https://your-company.atlassian.net)}
+      JIRA_PAT: ${JIRA_PAT:?JIRA_PAT is required}
+      JIRA_PROJECT_KEY: ${JIRA_PROJECT_KEY:-PROJ}
+      JIRA_BOARD_ID: ${JIRA_BOARD_ID:-1}
+      JIRA_FIELD_STORY_POINTS: ${JIRA_FIELD_STORY_POINTS:-customfield_10016}
+      JIRA_FIELD_EPIC_LINK: ${JIRA_FIELD_EPIC_LINK:-customfield_10014}
+      JIRA_FIELD_EPIC_NAME: ${JIRA_FIELD_EPIC_NAME:-customfield_10104}
+      JIRA_FIELD_SPRINT: ${JIRA_FIELD_SPRINT:-customfield_10020}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      OLLAMA_URL: http://ollama:11434
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      DOCS_FOLDER: /app/docs
+    volumes:
+      - ./logs:/app/logs
+      - ${HOST_DOCS_FOLDER:-./docs}:/app/docs:ro
+    networks:
+      - jira-net
+
+# ─── Named Volumes ────────────────────────────────────────────────────────────
+volumes:
+  postgres-data:
+    driver: local
+  ollama-models:
+    driver: local
+
+# ─── Network ──────────────────────────────────────────────────────────────────
+networks:
+  jira-net:
+    driver: bridge

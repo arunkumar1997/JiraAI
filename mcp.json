@@ -1,0 +1,17 @@
+{
+  "servers": {
+    "jira-ai": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "${workspaceFolder}/docker-compose.yml",
+        "run",
+        "-i",
+        "--rm",
+        "jira-ai-mcp"
+      ]
+    }
+  }
+}

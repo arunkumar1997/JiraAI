@@ -22,7 +22,7 @@ This server targets **JIRA Software Data Center** (self-hosted), which uses:
 4. Name: `jira-ai-mcp` | Expiry: your preference
 5. Copy the token — it's shown only once
 
-Set in `.env.local`:
+Set in `.env`:
 
 ```
 JIRA_PAT=your-token-here

@@ -8,7 +8,7 @@
         "jira-ai-mcp": "dist/index.js"
     },
     "scripts": {
-        "build": "tsc",
+        "build": "prisma generate && tsc",
         "start": "node dist/index.js",
         "dev": "tsx src/index.ts",
         "dev:watch": "tsx watch src/index.ts",
@@ -17,14 +17,30 @@
         "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
         "test:coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
         "clean": "rm -rf dist",
-        "lint": "eslint 'src/**/*.ts'"
+        "lint": "eslint 'src/**/*.ts'",
+        "db:migrate": "prisma migrate deploy",
+        "db:push": "prisma db push",
+        "db:studio": "prisma studio",
+        "db:generate": "prisma generate",
+        "ingest-docs": "tsx src/scripts/ingest-docs.ts",
+        "docker:db:migrate": "docker compose run --rm jira-ai-mcp node_modules/.bin/prisma migrate deploy",
+        "docker:db:studio": "docker compose run --rm -p 5555:5555 jira-ai-mcp npx prisma studio --port 5555 --browser none",
+        "docker:ingest-docs": "docker compose run --rm jira-ai-mcp node dist/scripts/ingest-docs.js",
+        "ollama:start": "docker compose up -d ollama",
+        "ollama:stop": "docker compose stop ollama",
+        "ollama:pull": "docker exec ollama ollama pull ${EMBEDDING_MODEL:-nomic-embed-text}",
+        "ollama:logs": "docker compose logs -f ollama",
+        "ollama:setup": "npm run ollama:start && echo 'Waiting for Ollama...' && sleep 5 && npm run ollama:pull"
     },
     "dependencies": {
         "@modelcontextprotocol/sdk": "latest",
-        "@types/better-sqlite3": "^7.6.13",
+        "@prisma/adapter-pg": "^7.8.0",
+        "@prisma/client": "^7.8.0",
+        "@types/pg": "^8.20.0",
         "axios": "latest",
-        "better-sqlite3": "^12.6.2",
         "dotenv": "latest",
+        "pg": "^8.21.0",
+        "prisma": "^7.8.0",
         "uuid": "latest",
         "winston": "latest",
         "zod": "latest"

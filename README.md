@@ -34,8 +34,8 @@ See [docs/setup/LOCAL_JIRA_SETUP.md](docs/setup/LOCAL_JIRA_SETUP.md) for the ful
 ### 2. Configure the MCP server
 
 ```bash
-cp .env.example .env.local
-# Edit .env.local — set JIRA_PAT and JIRA_PROJECT_KEY
+cp .env.example .env
+# Edit .env — set JIRA_PAT and JIRA_PROJECT_KEY
 ```
 
 ### 3. Build & run
@@ -194,7 +194,7 @@ jiraAI/
 
 ## Security Notes
 
-- **JIRA_PAT is a secret** — store in `.env.local` only, never commit
+- **JIRA_PAT is a secret** — store in `.env` only, never commit
 - Delete issues require the confirmation phrase `"DELETE CONFIRMED"` in the API call
 - Nothing commits to JIRA without explicit human `APPROVE` response
 - All tool actions are logged with timestamps and issue keys

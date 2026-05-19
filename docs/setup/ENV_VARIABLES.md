@@ -1,7 +1,7 @@
 # Environment Variables Reference
 
-All variables are loaded from `.env.local` (secrets) and `.env` (defaults).  
-Copy `.env.example` → `.env.local` and fill in your values. **Never commit `.env.local`.**
+All variables are loaded from `.env`.
+Copy `.env.example` → `.env` and fill in your values. **Never commit `.env`.**
 
 ---
 
@@ -74,7 +74,7 @@ Safe to delete if you want to clear all drafts (committed issues remain in JIRA)
 
 ## Docker Environment Variables
 
-These are in `docker/.env` (not `.env.local`) and are only used by Docker Compose.
+These are set in `.env` alongside your other variables.
 
 | Variable            | Required    | Description                              |
 | ------------------- | ----------- | ---------------------------------------- |
@@ -87,7 +87,7 @@ These are in `docker/.env` (not `.env.local`) and are only used by Docker Compos
 
 ---
 
-## Complete `.env.local` Example
+## Complete `.env` Example
 
 ```env
 # ─── Required ─────────────────────────────────────────────────────────

@@ -1,8 +1,7 @@
 import { config } from "dotenv";
 import { resolve } from "path";
 
-// Load .env.local first (secrets), then .env (defaults)
-config({ path: resolve(process.cwd(), ".env.local") });
+// Load .env (secrets + config)
 config({ path: resolve(process.cwd(), ".env") });
 
 function required(key: string): string {
@@ -11,9 +10,7 @@ function required(key: string): string {
     console.error(
       `[config] FATAL: Missing required environment variable: ${key}`,
     );
-    console.error(
-      `[config] Copy .env.example to .env.local and fill in the values.`,
-    );
+    console.error(`[config] Copy .env.example to .env and fill in the values.`);
     process.exit(1);
   }
   return val;
@@ -45,6 +42,14 @@ export const Config = {
     file: optional("LOG_FILE", "logs/jira-ai-mcp.log"),
   },
   draftStoragePath: optional("DRAFT_STORAGE_PATH", ".drafts.json"),
+  database: {
+    url: required("DATABASE_URL"),
+  },
+  rag: {
+    docsFolder: optional("DOCS_FOLDER", ""),
+    ollamaUrl: optional("OLLAMA_URL", "http://localhost:11434"),
+    embeddingModel: optional("EMBEDDING_MODEL", "nomic-embed-text"),
+  },
   server: {
     name: "jira-ai-mcp-server",
     version: "1.0.0",
