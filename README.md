@@ -126,15 +126,15 @@ Respond **APPROVE ALL** → Claude calls `approve_jira_draft` then `commit_jira_
 ## Project Structure
 
 ```
-jiraAI/
+JiraAI/
 ├── src/
-│   ├── index.ts              # MCP server entry + tool registry
-│   ├── config.ts             # Environment config
-│   ├── jira/
-│   │   ├── client.ts         # JIRA REST API v2 client (axios)
-│   │   └── types.ts          # TypeScript interfaces
+│   ├── index.ts                  # MCP server entry + tool registry
+│   ├── config.ts                 # Environment config
 │   ├── ai/
-│   │   └── draft-manager.ts  # Draft state machine (human-in-the-loop)
+│   │   └── draft-manager.ts      # Draft state machine (human-in-the-loop)
+│   ├── jira/
+│   │   ├── client.ts             # JIRA REST API v2 client (axios)
+│   │   └── types.ts              # TypeScript interfaces
 │   ├── tools/
 │   │   ├── draft-tools.ts        # AI workflow tools (create/approve/commit draft)
 │   │   ├── issue-tools.ts        # CRUD issue tools
@@ -145,24 +145,37 @@ jiraAI/
 │   │   ├── docs-tools.ts         # search_project_docs RAG tool
 │   │   └── transcription-tools.ts # Whisper-based meeting transcription
 │   ├── utils/
-│   │   ├── logger.ts         # Winston structured logger
-│   │   ├── database.ts       # Prisma client singleton
-│   │   └── rag.ts            # Ollama embedding + pgvector search
-│   └── scripts/
-│       └── ingest-docs.ts    # CLI to chunk & embed docs into PostgreSQL
-├── docker/
-│   ├── docker-compose.yml    # PostgreSQL + nginx (dev only)
-│   ├── .env.example          # Docker env vars template
-│   ├── nginx/nginx.conf      # Reverse proxy config
-│   └── init-db.sql           # PostgreSQL initialization
-├── docs/                     # Architecture, setup, and API docs
+│   │   ├── logger.ts             # Winston structured logger
+│   │   ├── database.ts           # Prisma client singleton
+│   │   └── rag.ts                # Ollama embedding + pgvector search
+│   ├── scripts/
+│   │   └── ingest-docs.ts        # CLI to chunk & embed docs into PostgreSQL
+│   └── __tests__/
+│       ├── unit/                 # Unit tests per tool/module
+│       └── integration/          # End-to-end draft lifecycle tests
+├── prisma/
+│   ├── schema.prisma             # Prisma schema (doc_chunks, doc_embeddings)
+│   ├── prisma.config.ts          # Prisma config
+│   └── migrations/               # SQL migration history
+├── docker/                       # Dev-only Docker stack
+│   ├── docker-compose.yml        # PostgreSQL + nginx
+│   ├── .env.example              # Docker env vars template
+│   ├── nginx/nginx.conf          # Reverse proxy config
+│   └── init-db.sql               # PostgreSQL initialization
+├── docs/                         # Architecture, setup, and API docs
 │   ├── architecture/
 │   ├── setup/
 │   ├── prompts/
 │   ├── api/
 │   ├── decisions/
 │   └── testing/
-└── .env.example              # MCP server env vars template
+├── Dockerfile                    # MCP server Docker image
+├── docker-compose.yml            # Root compose file
+├── mcp.json                      # MCP server manifest
+├── package.json
+├── tsconfig.json
+├── setup.sh                      # One-shot dev environment setup
+└── .env.example                  # MCP server env vars template
 ```
 
 ---
