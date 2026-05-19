@@ -27,6 +27,19 @@ cp .env.example .env
 # Edit .env — set JIRA_BASE_URL, JIRA_PAT and JIRA_PROJECT_KEY
 ```
 
+Or run the one-shot setup script which handles prerequisites, `.env` creation, and Docker image build in one go:
+
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+What `setup.sh` does:
+1. Checks Docker and Docker Compose v2 are available
+2. Creates `.env` from `.env.example` if not already present
+3. Builds the `jira-ai-mcp` Docker image
+4. Optionally launches the full stack (PostgreSQL + Ollama + jira-ai-mcp)
+
 ### 2. Build & run
 
 ```bash
