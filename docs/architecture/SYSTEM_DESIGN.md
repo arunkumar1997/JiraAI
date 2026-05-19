@@ -2,7 +2,7 @@
 
 ## Overview
 
-The JIRA AI MCP Server is an **MCP (Model Context Protocol) server** that sits between an AI assistant (Claude) and a self-hosted JIRA Data Center instance. It translates natural-language meeting summaries into structured JIRA work items, enforcing a mandatory human-approval gate before anything is written.
+The JIRA AI MCP Server is an **MCP (Model Context Protocol) server** that sits between an AI assistant (Claude) and a JIRA instance. It translates natural-language meeting summaries into structured JIRA work items, enforcing a mandatory human-approval gate before anything is written.
 
 ---
 
@@ -38,20 +38,21 @@ The JIRA AI MCP Server is an **MCP (Model Context Protocol) server** that sits b
 │  │  committed       │  │  Issue CRUD      │  │                  │  │
 │  │                  │  │  Sprint mgmt     │  │  Agile API v1    │  │
 │  │  JSON on disk    │  │  Workflow        │  │                  │  │
+│  │                  │  │  RAG / Docs      │  │                  │  │
+│  │                  │  │  Transcription   │  │                  │  │
 │  └──────────────────┘  └────────┬─────────┘  └────────┬─────────┘  │
 │                                 │                     │            │
 └─────────────────────────────────┼─────────────────────┼────────────┘
                                   │ HTTP (axios)         │
                                   ▼                      ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│              DOCKER STACK  (self-hosted, local)                     │
+│                  EXTERNAL SERVICES                                  │
 │                                                                     │
-│  ┌─────────────────┐    ┌──────────────────┐   ┌────────────────┐  │
-│  │ nginx:1.25      │    │ jira-software:   │   │ postgres:14    │  │
-│  │                 │───►│ 9.12.0           │──►│                │  │
-│  │ :80 / :443      │    │ :8080            │   │ :5432          │  │
-│  │ Reverse proxy   │    │ Data Center      │   │ jiradb         │  │
-│  └─────────────────┘    └──────────────────┘   └────────────────┘  │
+│  ┌──────────────────┐    ┌──────────────────┐                       │
+│  │ JIRA             │    │ PostgreSQL        │                       │
+│  │ (your instance)  │    │ + pgvector        │                       │
+│  │                  │    │ (RAG store)       │                       │
+│  └──────────────────┘    └──────────────────┘                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -101,10 +102,10 @@ The JIRA AI MCP Server is an **MCP (Model Context Protocol) server** that sits b
 | Validation  | zod 3.22                         | Runtime schema validation              |
 | Logging     | winston 3.13                     | Structured JSON logs, file+console     |
 | AI          | Claude Sonnet (via MCP host)     | Intelligent meeting analysis           |
-| JIRA        | Atlassian JIRA Software 9.12     | Data Center, self-hosted               |
-| Database    | PostgreSQL 14                    | Required by JIRA                       |
-| Proxy       | nginx 1.25                       | SSL termination, reverse proxy         |
-| Container   | Docker Compose v3.8              | Local orchestration                    |
+| JIRA        | Atlassian JIRA (Cloud or Server)  | REST API v2 + Agile API v1             |
+| Database    | PostgreSQL + pgvector             | RAG vector store                       |
+| Embeddings  | Ollama (`nomic-embed-text`)        | Local embedding generation             |
+| Container   | Docker Compose v3.8              | Local dev orchestration                |
 
 ---
 

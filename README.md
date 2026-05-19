@@ -12,7 +12,7 @@ This is an **MCP (Model Context Protocol) server** that plugs into Claude (or an
 | ----------------- | --------------------------------------------------------------- |
 | Raw meeting notes | Structured JIRA draft: Epics → Stories → Tasks → Bugs           |
 | Draft review      | Human approval gate — nothing touches JIRA without you          |
-| Approval          | Atomically commits all approved issues to your self-hosted JIRA |
+| Approval          | Atomically commits all approved issues to JIRA |
 
 The AI handles: sprint planning, backlog refinement, daily standup updates, sprint review summaries, and retrospective action items.
 
@@ -20,25 +20,14 @@ The AI handles: sprint planning, backlog refinement, daily standup updates, spri
 
 ## Quick Start
 
-### 1. Start JIRA (Docker)
-
-```bash
-cp docker/.env.example docker/.env
-# Edit docker/.env — set POSTGRES_PASSWORD at minimum
-docker compose -f docker/docker-compose.yml --env-file docker/.env up -d
-```
-
-Open http://localhost:8080 — complete the JIRA setup wizard.  
-See [docs/setup/LOCAL_JIRA_SETUP.md](docs/setup/LOCAL_JIRA_SETUP.md) for the full step-by-step.
-
-### 2. Configure the MCP server
+### 1. Configure the MCP server
 
 ```bash
 cp .env.example .env
-# Edit .env — set JIRA_PAT and JIRA_PROJECT_KEY
+# Edit .env — set JIRA_BASE_URL, JIRA_PAT and JIRA_PROJECT_KEY
 ```
 
-### 3. Build & run
+### 2. Build & run
 
 ```bash
 npm install
@@ -46,7 +35,7 @@ npm run build
 npm start
 ```
 
-### 3a. Build Docker image for VS Code MCP
+### 2a. Build Docker image for VS Code MCP
 
 If you run the MCP server from `.vscode/mcp.json` with Docker, build the local image once:
 
@@ -60,7 +49,7 @@ If you want to run the MCP server via Docker Compose directly:
 docker compose -f mcp-compose.yml run -i --rm jira-ai-mcp
 ```
 
-### 4. Connect to Claude Desktop
+### 3. Connect to Claude Desktop
 
 Add to `~/.config/claude/claude_desktop_config.json`:
 
@@ -69,9 +58,9 @@ Add to `~/.config/claude/claude_desktop_config.json`:
   "mcpServers": {
     "jira-ai": {
       "command": "node",
-      "args": ["/home/arun/jiraAI/dist/index.js"],
+      "args": ["/path/to/JiraAI/dist/index.js"],
       "env": {
-        "JIRA_BASE_URL": "http://localhost:8080",
+        "JIRA_BASE_URL": "https://your-domain.atlassian.net",
         "JIRA_PAT": "your-pat-here",
         "JIRA_PROJECT_KEY": "PROJ"
       }
@@ -128,10 +117,14 @@ Respond **APPROVE ALL** → Claude calls `approve_jira_draft` then `commit_jira_
 | `jira_create_issue`     | Create a single issue directly                                            |
 | `jira_update_issue`     | Update an existing issue                                                  |
 | `jira_delete_issue`     | Delete (requires confirmation phrase)                                     |
+| `search_project_docs`   | Semantic search over ingested project docs (RAG)                          |
 | `jira_search_issues`    | JQL-based search                                                          |
 | `jira_create_sprint`    | Create a new sprint                                                       |
 | `jira_move_to_sprint`   | Move issues into a sprint                                                 |
 | `jira_transition_issue` | Move issue through workflow statuses                                      |
+| `transcribe_meeting`    | Transcribe a short recording (< ~20 min) synchronously via Whisper AI     |
+| `start_transcription`   | Start a background transcription job for long recordings (any duration)   |
+| `get_transcription_result` | Poll for result of a background transcription job                      |
 | …                       | See [docs/api/TOOL_SCHEMAS.md](docs/api/TOOL_SCHEMAS.md) for all 22 tools |
 
 ---
@@ -149,16 +142,22 @@ jiraAI/
 │   ├── ai/
 │   │   └── draft-manager.ts  # Draft state machine (human-in-the-loop)
 │   ├── tools/
-│   │   ├── draft-tools.ts    # AI workflow tools (create/approve/commit draft)
-│   │   ├── issue-tools.ts    # CRUD issue tools
-│   │   ├── sprint-tools.ts   # Sprint management
-│   │   ├── search-tools.ts   # JQL search, project/user queries
-│   │   ├── comment-tools.ts  # Issue comments
-│   │   └── workflow-tools.ts # Status transitions
-│   └── utils/
-│       └── logger.ts         # Winston structured logger
+│   │   ├── draft-tools.ts        # AI workflow tools (create/approve/commit draft)
+│   │   ├── issue-tools.ts        # CRUD issue tools
+│   │   ├── sprint-tools.ts       # Sprint management
+│   │   ├── search-tools.ts       # JQL search, project/user queries
+│   │   ├── comment-tools.ts      # Issue comments
+│   │   ├── workflow-tools.ts     # Status transitions
+│   │   ├── docs-tools.ts         # search_project_docs RAG tool
+│   │   └── transcription-tools.ts # Whisper-based meeting transcription
+│   ├── utils/
+│   │   ├── logger.ts         # Winston structured logger
+│   │   ├── database.ts       # Prisma client singleton
+│   │   └── rag.ts            # Ollama embedding + pgvector search
+│   └── scripts/
+│       └── ingest-docs.ts    # CLI to chunk & embed docs into PostgreSQL
 ├── docker/
-│   ├── docker-compose.yml    # JIRA + PostgreSQL + nginx
+│   ├── docker-compose.yml    # PostgreSQL + nginx (dev only)
 │   ├── .env.example          # Docker env vars template
 │   ├── nginx/nginx.conf      # Reverse proxy config
 │   └── init-db.sql           # PostgreSQL initialization
@@ -182,13 +181,66 @@ jiraAI/
 | [SYSTEM_DESIGN.md](docs/architecture/SYSTEM_DESIGN.md)         | Overall architecture & data flow     |
 | [MCP_SERVER_DESIGN.md](docs/architecture/MCP_SERVER_DESIGN.md) | MCP protocol & tool structure        |
 | [JIRA_INTEGRATION.md](docs/architecture/JIRA_INTEGRATION.md)   | JIRA API auth & field mapping        |
-| [LOCAL_JIRA_SETUP.md](docs/setup/LOCAL_JIRA_SETUP.md)          | Docker setup step-by-step            |
 | [ENV_VARIABLES.md](docs/setup/ENV_VARIABLES.md)                | All environment variables            |
 | [TOOL_SCHEMAS.md](docs/api/TOOL_SCHEMAS.md)                    | Full JSON schemas for all tools      |
 | [JIRA_FIELD_MAPPING.md](docs/api/JIRA_FIELD_MAPPING.md)        | AI fields → JIRA custom fields       |
 | [EXAMPLES.md](docs/prompts/EXAMPLES.md)                        | Sample inputs & expected outputs     |
 | [TEST_PLAN.md](docs/testing/TEST_PLAN.md)                      | Unit, integration, E2E test strategy |
 | [ADR-001.md](docs/decisions/ADR-001.md)                        | Architecture Decision Records        |
+
+---
+
+## RAG — Project Docs Search
+
+The server includes a **Retrieval-Augmented Generation (RAG)** pipeline that lets the AI search your project documentation semantically before creating JIRA issues.
+
+### How It Works
+
+1. **Ingest** — Markdown/text files are chunked and embedded via [Ollama](https://ollama.com) (`nomic-embed-text` by default) and stored in PostgreSQL using `pgvector`.
+2. **Search** — The `search_project_docs` MCP tool queries the vector store using cosine similarity to return the most relevant passages.
+3. **Augment** — The AI uses the retrieved context (requirements, architecture constraints, terminology) to produce higher-quality, domain-aware JIRA drafts.
+
+### Setup
+
+#### 1. Start Ollama and pull the embedding model
+
+```bash
+ollama pull nomic-embed-text
+```
+
+#### 2. Configure environment variables
+
+```env
+DOCS_FOLDER=/path/to/your/project/docs   # folder to ingest
+OLLAMA_URL=http://localhost:11434         # Ollama base URL
+EMBEDDING_MODEL=nomic-embed-text         # model used for embeddings
+```
+
+#### 3. Ingest your docs
+
+```bash
+# Index all supported files (.md, .txt, .markdown) in DOCS_FOLDER
+DOCS_FOLDER=/path/to/docs npm run ingest-docs
+
+# Force re-index all files (even unchanged ones)
+DOCS_FOLDER=/path/to/docs npm run ingest-docs -- --force
+
+# Clear all indexed docs without re-ingesting
+npm run ingest-docs -- --clear
+```
+
+### MCP Tool
+
+| Tool                  | Purpose                                                                 |
+| --------------------- | ----------------------------------------------------------------------- |
+| `search_project_docs` | Semantically search ingested docs — call before creating JIRA issues to pull in domain-specific context |
+
+### Database Schema
+
+Docs are stored in two tables (see `prisma/schema.prisma`):
+
+- **`doc_chunks`** — raw text chunks with `source_file` reference
+- **`doc_embeddings`** — pgvector `embedding` column linked to each chunk
 
 ---
 

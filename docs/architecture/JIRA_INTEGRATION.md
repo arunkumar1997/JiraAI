@@ -1,14 +1,14 @@
 # JIRA Integration Guide
 
-## JIRA Data Center vs Cloud
+## JIRA API Compatibility
 
-This server targets **JIRA Software Data Center** (self-hosted), which uses:
+This server targets the JIRA **REST API v2** and **Agile API v1**, which are supported by both JIRA Cloud and JIRA Server/Data Center:
 
 - REST API **v2** (`/rest/api/2/`)
 - Agile API **v1** (`/rest/agile/1.0/`)
 - **Bearer token** (PAT) authentication
 
-> JIRA Cloud uses API v3 with Atlassian Document Format (ADF) for `description`. Data Center v2 accepts plain text / wiki markup strings — no ADF needed.
+> JIRA Cloud also accepts PAT-based auth. If using JIRA Cloud, set `JIRA_BASE_URL=https://your-domain.atlassian.net`.
 
 ---
 
@@ -16,7 +16,7 @@ This server targets **JIRA Software Data Center** (self-hosted), which uses:
 
 ### Creating a Personal Access Token (PAT)
 
-1. Log into JIRA at `http://localhost:8080`
+1. Log into JIRA at `$JIRA_BASE_URL`
 2. Go to **Profile** (top-right avatar) → **Personal Access Tokens**
 3. Click **Create token**
 4. Name: `jira-ai-mcp` | Expiry: your preference
@@ -35,7 +35,7 @@ Authorization: Bearer <PAT>
 X-Atlassian-Token: no-check
 ```
 
-`X-Atlassian-Token: no-check` is required for JIRA Data Center to bypass CSRF protection on POST/PUT/DELETE requests with JSON bodies.
+`X-Atlassian-Token: no-check` is required to bypass CSRF protection on POST/PUT/DELETE requests with JSON bodies.
 
 ---
 
@@ -77,7 +77,7 @@ Custom field IDs (like `customfield_10016` for Story Points) vary per JIRA insta
 
 ```bash
 curl -H "Authorization: Bearer $JIRA_PAT" \
-     http://localhost:8080/rest/api/2/field \
+     $JIRA_BASE_URL/rest/api/2/field \
   | jq '.[] | select(.custom==true) | {id, name}'
 ```
 
@@ -192,7 +192,7 @@ The JIRA client logs both `errorMessages` and `errors` fields on every failure a
 
 ## Rate Limits
 
-JIRA Data Center does not enforce API rate limits by default, but Atlassian recommends:
+JIRA does not enforce API rate limits by default, but Atlassian recommends:
 
 - Max 1 request/second for write operations in production
 - Use `maxResults` parameter in search (default: 50, max: 100)

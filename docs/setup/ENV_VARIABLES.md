@@ -17,7 +17,7 @@ Copy `.env.example` → `.env` and fill in your values. **Never commit `.env`.**
 
 | Variable           | Default                 | Description                          |
 | ------------------ | ----------------------- | ------------------------------------ |
-| `JIRA_BASE_URL`    | `http://localhost:8080` | Base URL of your JIRA instance       |
+| `JIRA_BASE_URL`    | `https://your-domain.atlassian.net` | Base URL of your JIRA instance       |
 | `JIRA_PROJECT_KEY` | `PROJ`                  | Default JIRA project key (uppercase) |
 | `JIRA_BOARD_ID`    | `1`                     | Scrum board ID for sprint operations |
 
@@ -25,7 +25,7 @@ Copy `.env.example` → `.env` and fill in your values. **Never commit `.env`.**
 
 ```bash
 curl -H "Authorization: Bearer $JIRA_PAT" \
-  http://localhost:8080/rest/agile/1.0/board | python3 -m json.tool
+  $JIRA_BASE_URL/rest/agile/1.0/board | python3 -m json.tool
 ```
 
 ---
@@ -36,7 +36,7 @@ Custom field IDs vary per JIRA installation. Discover them:
 
 ```bash
 curl -H "Authorization: Bearer $JIRA_PAT" \
-  http://localhost:8080/rest/api/2/field \
+  $JIRA_BASE_URL/rest/api/2/field \
   | python3 -c "import json,sys; [print(f['id'], f['name']) for f in json.load(sys.stdin) if f.get('custom')]"
 ```
 
@@ -72,18 +72,33 @@ Safe to delete if you want to clear all drafts (committed issues remain in JIRA)
 
 ---
 
-## Docker Environment Variables
+## Database (RAG)
 
-These are set in `.env` alongside your other variables.
+| Variable       | Required | Description                                      |
+| -------------- | -------- | ------------------------------------------------ |
+| `DATABASE_URL` | ✅       | PostgreSQL connection string for pgvector store  |
 
-| Variable            | Required    | Description                              |
-| ------------------- | ----------- | ---------------------------------------- |
-| `POSTGRES_PASSWORD` | ✅          | PostgreSQL password for the JIRA DB user |
-| `POSTGRES_USER`     | `jira`      | PostgreSQL username                      |
-| `POSTGRES_DB`       | `jiradb`    | PostgreSQL database name                 |
-| `JIRA_HOSTNAME`     | `localhost` | Hostname JIRA uses in generated URLs     |
-| `JIRA_PROXY_PORT`   | `80`        | Port exposed by nginx                    |
-| `JIRA_SCHEME`       | `http`      | `http` or `https`                        |
+Example: `postgresql://user:password@localhost:5432/jiraai`
+
+---
+
+## RAG — Document Search
+
+| Variable          | Default                     | Description                                  |
+| ----------------- | --------------------------- | -------------------------------------------- |
+| `DOCS_FOLDER`     | _(empty)_                   | Folder path to ingest docs from              |
+| `OLLAMA_URL`      | `http://localhost:11434`    | Ollama base URL for generating embeddings    |
+| `EMBEDDING_MODEL` | `nomic-embed-text`          | Ollama model used for embedding              |
+
+Run `npm run ingest-docs` after setting `DOCS_FOLDER` to index your project docs.
+
+---
+
+## Transcription
+
+| Variable         | Default   | Description                                                              |
+| ---------------- | --------- | ------------------------------------------------------------------------ |
+| `WHISPER_PYTHON` | `python3` | Python executable with `faster-whisper` installed (e.g. `.venv/bin/python`) |
 
 ---
 
@@ -92,9 +107,10 @@ These are set in `.env` alongside your other variables.
 ```env
 # ─── Required ─────────────────────────────────────────────────────────
 JIRA_PAT=your-personal-access-token-here
+DATABASE_URL=postgresql://user:password@localhost:5432/jiraai
 
 # ─── JIRA Connection ──────────────────────────────────────────────────
-JIRA_BASE_URL=http://localhost:8080
+JIRA_BASE_URL=https://your-domain.atlassian.net
 JIRA_PROJECT_KEY=PROJ
 JIRA_BOARD_ID=1
 
@@ -111,4 +127,12 @@ LOG_FILE=logs/jira-ai-mcp.log
 
 # ─── Draft Storage ────────────────────────────────────────────────────
 DRAFT_STORAGE_PATH=.drafts.json
+
+# ─── RAG ──────────────────────────────────────────────────────────────
+DOCS_FOLDER=/path/to/your/project/docs
+OLLAMA_URL=http://localhost:11434
+EMBEDDING_MODEL=nomic-embed-text
+
+# ─── Transcription (optional) ─────────────────────────────────────────
+WHISPER_PYTHON=python3
 ```

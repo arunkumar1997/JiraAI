@@ -179,9 +179,9 @@ No other files need to change.
   "mcpServers": {
     "jira-ai": {
       "command": "node",
-      "args": ["/home/arun/jiraAI/dist/index.js"],
+      "args": ["/path/to/JiraAI/dist/index.js"],
       "env": {
-        "JIRA_BASE_URL": "http://localhost:8080",
+        "JIRA_BASE_URL": "https://your-domain.atlassian.net",
         "JIRA_PAT": "your-personal-access-token",
         "JIRA_PROJECT_KEY": "PROJ",
         "JIRA_BOARD_ID": "1"
@@ -196,6 +196,6 @@ For development (without building):
 ```json
 {
   "command": "npx",
-  "args": ["tsx", "/home/arun/jiraAI/src/index.ts"]
+  "args": ["tsx", "/path/to/JiraAI/src/index.ts"]
 }
 ```

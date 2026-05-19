@@ -415,3 +415,99 @@ Store draft artifacts for human review. **Does not write to JIRA.**
   }
 }
 ```
+
+---
+
+## RAG — Docs Search Tool
+
+### `search_project_docs`
+
+```json
+{
+  "name": "search_project_docs",
+  "inputSchema": {
+    "type": "object",
+    "required": ["query"],
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Natural language query (e.g. 'authentication requirements', 'data retention policy')"
+      },
+      "top_k": {
+        "type": "number",
+        "description": "Number of results to return (1–10). Defaults to 5."
+      }
+    }
+  }
+}
+```
+
+---
+
+## Transcription Tools
+
+### `transcribe_meeting`
+
+Synchronous — for short recordings (< ~20 min). Requires `faster-whisper` (`pip install faster-whisper`).
+
+```json
+{
+  "name": "transcribe_meeting",
+  "inputSchema": {
+    "type": "object",
+    "required": ["audio_file_path"],
+    "properties": {
+      "audio_file_path": {
+        "type": "string",
+        "description": "Absolute path to the recording (.mp4, .mp3, .wav, .m4a, .webm, .mkv, .mov, .ogg, .flac)"
+      },
+      "model": {
+        "type": "string",
+        "enum": ["tiny", "tiny.en", "base", "base.en", "small", "small.en", "medium", "medium.en", "large-v2", "large-v3"],
+        "default": "base.en"
+      },
+      "language": { "type": "string", "default": "auto" }
+    }
+  }
+}
+```
+
+### `start_transcription`
+
+Async — starts a background job for long recordings (any duration). Returns a `job_id`.
+
+```json
+{
+  "name": "start_transcription",
+  "inputSchema": {
+    "type": "object",
+    "required": ["audio_file_path"],
+    "properties": {
+      "audio_file_path": { "type": "string" },
+      "model": {
+        "type": "string",
+        "enum": ["tiny", "tiny.en", "base", "base.en", "small", "small.en", "medium", "medium.en", "large-v2", "large-v3"],
+        "default": "base.en"
+      },
+      "language": { "type": "string", "default": "auto" }
+    }
+  }
+}
+```
+
+### `get_transcription_result`
+
+Poll for the result of a job started with `start_transcription`.
+
+```json
+{
+  "name": "get_transcription_result",
+  "inputSchema": {
+    "type": "object",
+    "required": ["job_id"],
+    "properties": {
+      "job_id": { "type": "string", "description": "Job ID returned by start_transcription" }
+    }
+  }
+}
+```
