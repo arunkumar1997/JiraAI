@@ -76,8 +76,14 @@ export class JiraClient {
     return res.data;
   }
 
-  async getIssue(issueKey: string): Promise<JiraIssue> {
-    const res = await this.http.get<JiraIssue>(`/rest/api/2/issue/${issueKey}`);
+  async getIssue(
+    issueKey: string,
+    includeComments = false,
+  ): Promise<JiraIssue> {
+    const query = includeComments ? "?fields=*all" : "";
+    const res = await this.http.get<JiraIssue>(
+      `/rest/api/2/issue/${issueKey}${query}`,
+    );
     return res.data;
   }
 
@@ -93,8 +99,9 @@ export class JiraClient {
   }
 
   async assignIssue(issueKey: string, accountId: string | null): Promise<void> {
+    // JIRA Data Center uses `name` (username); Cloud uses `accountId`
     await this.http.put(`/rest/api/2/issue/${issueKey}/assignee`, {
-      accountId,
+      name: accountId,
     });
   }
 

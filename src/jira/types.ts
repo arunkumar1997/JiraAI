@@ -1,6 +1,6 @@
 // ─── Primitive Types ──────────────────────────────────────────────────────────
 
-export type IssuePriority = "Highest" | "High" | "Medium" | "Low" | "Lowest";
+export type IssuePriority = "Blocker" | "Critical" | "Serious" | "Low";
 export type IssueType =
   | "Epic"
   | "Story"

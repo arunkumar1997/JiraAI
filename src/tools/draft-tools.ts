@@ -40,8 +40,8 @@ const ARTIFACT_ITEM_SCHEMA = {
     description: { type: "string", description: "Full structured description" },
     priority: {
       type: "string",
-      enum: ["Highest", "High", "Medium", "Low", "Lowest"],
-      default: "Medium",
+      enum: ["Blocker", "Critical", "Serious", "Low"],
+      default: "Serious",
     },
     storyPoints: { type: "number", enum: [1, 2, 3, 5, 8, 13, 21], default: 3 },
     acceptanceCriteria: { type: "array", items: { type: "string" } },

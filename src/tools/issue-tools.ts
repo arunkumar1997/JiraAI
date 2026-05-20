@@ -25,8 +25,8 @@ export const issueToolDefinitions: Tool[] = [
         description: { type: "string" },
         priority: {
           type: "string",
-          enum: ["Highest", "High", "Medium", "Low", "Lowest"],
-          default: "Medium",
+          enum: ["Blocker", "Critical", "Serious", "Low"],
+          default: "Serious",
         },
         story_points: { type: "number", enum: [1, 2, 3, 5, 8, 13, 21] },
         labels: { type: "array", items: { type: "string" } },
@@ -48,6 +48,12 @@ export const issueToolDefinitions: Tool[] = [
       type: "object",
       properties: {
         issue_key: { type: "string", description: "Issue key (e.g. PROJ-42)" },
+        include_comments: {
+          type: "boolean",
+          description:
+            "When true, includes the full list of comments on the issue",
+          default: false,
+        },
       },
       required: ["issue_key"],
     },
@@ -65,7 +71,7 @@ export const issueToolDefinitions: Tool[] = [
         description: { type: "string" },
         priority: {
           type: "string",
-          enum: ["Highest", "High", "Medium", "Low", "Lowest"],
+          enum: ["Blocker", "Critical", "Serious", "Low"],
         },
         story_points: { type: "number", enum: [1, 2, 3, 5, 8, 13, 21] },
         labels: { type: "array", items: { type: "string" } },
@@ -153,7 +159,7 @@ export async function handleIssueTool(
         project: {
           key: (args.project_key as string) || Config.jira.projectKey,
         },
-        priority: { name: (args.priority as string) || "Medium" },
+        priority: { name: (args.priority as string) || "Serious" },
       };
       if (args.description) issueFields.description = args.description;
       // Story points are set via a separate update call to avoid 400
@@ -185,22 +191,45 @@ export async function handleIssueTool(
     }
 
     case "jira_get_issue": {
-      const issue = await jiraClient.getIssue(args.issue_key as string);
-      return JSON.stringify(
-        {
-          key: issue.key,
-          summary: issue.fields.summary,
-          type: issue.fields.issuetype.name,
-          status: issue.fields.status.name,
-          priority: issue.fields.priority?.name,
-          assignee: issue.fields.assignee?.displayName ?? "Unassigned",
-          labels: issue.fields.labels,
-          created: issue.fields.created,
-          updated: issue.fields.updated,
-        },
-        null,
-        2,
+      const includeComments = Boolean(args.include_comments);
+      const issue = await jiraClient.getIssue(
+        args.issue_key as string,
+        includeComments,
       );
+      const result: Record<string, unknown> = {
+        key: issue.key,
+        summary: issue.fields.summary,
+        type: issue.fields.issuetype.name,
+        status: issue.fields.status.name,
+        priority: issue.fields.priority?.name,
+        assignee: issue.fields.assignee?.displayName ?? "Unassigned",
+        labels: issue.fields.labels,
+        created: issue.fields.created,
+        updated: issue.fields.updated,
+      };
+      if (includeComments) {
+        const rawComments = (issue.fields as Record<string, unknown>)
+          .comment as
+          | {
+              comments: Array<{
+                id: string;
+                author: { displayName: string };
+                body: string;
+                created: string;
+                updated: string;
+              }>;
+            }
+          | undefined;
+        result.comments =
+          rawComments?.comments?.map((c) => ({
+            id: c.id,
+            author: c.author?.displayName,
+            body: c.body,
+            created: c.created,
+            updated: c.updated,
+          })) ?? [];
+      }
+      return JSON.stringify(result, null, 2);
     }
 
     case "jira_update_issue": {
